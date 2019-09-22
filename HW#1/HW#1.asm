@@ -64,7 +64,3 @@ main:
 	li	$v0, 1		# system call to print an Integer
 	lw	$a0, S		# load S into register $a0
 	syscall
-	
-	
-	
-	
