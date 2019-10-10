@@ -20,13 +20,13 @@
 #	$t2	compare index < input ? 1 : 0
 #	$t3	memory address iterator
 #	$t4	sum
+#	$t5	compare number < 0 ? 1 : 0
 #############################################################################
-	.data
+		.data
+array	:	.space 404				#  array (101 * 4)
 msgIn:	.asciiz "input a 0 - 100 integer : "
 msgSum1:	.asciiz "The sum of even integers from 0 to "
 msgSum2: .asciiz " is "
-		.align 2
-array	:	.space 4				#  array (101 * 4)
 #############################################################################
 		.text
 		.globl main
@@ -39,6 +39,8 @@ main:	# input 0 - 100
 		syscall
 		# ? == 0
 		beq	$v0, $zero, exit		# if equals to 0, then exit
+		slt	$t5, $v0, $zero		# input < 0 ? 1 : 0 
+		bne	$t5, $zero, exit		# if number < 0, exit (these two lines deal with input < 0, maybe unnecessary)
 		add	$t0, $zero, $v0		# store input
 		
 		# init register for store number
@@ -48,10 +50,11 @@ main:	# input 0 - 100
 loop1:	sw	$t1, 0($t3)		# save number to iterator
 		addi	$t1, $t1, 1		# number++
 		addi	$t3, $t3, 4		# get next address
-		slt	$t2, $t1, $t0		# input < number ? 1 : 0
+		slt	$t2, $t1, $t0		# number < input  ? 1 : 0
+		beq	$t1, 100, finally1	# prevent overflow
 		bne	$t2, $zero, loop1	# if not 0, goto loop1
 		# add last
-		sw	$t1, 0($t3)		# save last number
+finally1:	sw	$t1, 0($t3)		# save last number
 		
 		# init register for calculate sum
 		la	$t3, array			# init $t3 iterator
@@ -62,9 +65,10 @@ loop2:	lb	$t1, 0($t3)		# load even number from iterator
 		addi	$t3, $t3, 8		# interval is 8
 		addi	$t1, $t1, 2		# number + 1 for odd input
 		slt	$t2, $t1, $t0		# number + 1 < input ? 1 : 0
+		beq	$t1, 100, finally2	# prevent overflow
 		bne	$t2, $zero, loop2	# if not 0, goto loop2
 		# add last
-		lb	$t1, 0($t3)		# load last even number
+finally2:	lb	$t1, 0($t3)		# load last even number
 		add	$t4, $t4, $t1		# add last even number
 		
 		# print sum
@@ -73,7 +77,7 @@ loop2:	lb	$t1, 0($t3)		# load even number from iterator
 		syscall
 		
 		li	$v0, 1			# system call to print input between two messages
-		move	$a0, $t0			# set input to print
+		move	$a0, $t1			# set input to print
 		syscall
 		
 		li	$v0, 4			# system call to print msgSum2
