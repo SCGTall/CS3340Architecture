@@ -39,6 +39,7 @@
 # version 1.1	10/05/19		Print card and calculate result
 # version 1.2	10/09/19		If think about number out of 1~63, return 0
 # version 1.3	11/08/19		Imply shuffle function
+# version 1.4	12/02/19		Add functions about Bitmaps
 # 
 #############################################################################
 # Register:
@@ -52,13 +53,13 @@
 # $s3	line feed every x numbers
 # $s4	random factor: a random number to decide current digit for card is 0 or 1
 # #s5	card length
-# $t0	digit left, show result when $t0 is 0
-# $t1	result
-# $t2	input, 1 for y and 0 for n
-# $t3	current digit
-# $t4	valid random sequence (last digit)
-# $t8	tmp1
-# $t9	tmp2
+# $t0		digit left, show result when $t0 is 0
+# $t1		result
+# $t2		input, 1 for y and 0 for n
+# $t3		current digit
+# $t4		valid random sequence (last digit)
+# $t8		tmp1
+# $t9		tmp2
 #
 # Truth table:		current digit(card)	answer value	result of xor	final binary expansion		add to result
 #						0			0(n)			0				1				1
@@ -80,6 +81,16 @@ overflow:	.asciiz "\nAll your answer is 'n', which means that your number is not
 end:		.asciiz "\nGLHF!"
 sequence:	.space 24			# digit sequence
 card:		.space 128		# at most 
+pictStart:	.asciiz "Resource/P01.png"
+pictCard1:	.asciiz "Resource/P02.png"
+pictCard2:	.asciiz "Resource/P03.png"
+pictCard3:	.asciiz "Resource/P04.png"
+pictCard4:	.asciiz "Resource/P05.png"
+pictCard5:	.asciiz "Resource/P06.png"
+pictCard6:	.asciiz "Resource/P07.png"
+pictAnsw:	.asciiz "Resource/P02.png"
+pictOverf:	.asciiz "Resource/P03.png"
+pictEnd:	.asciiz "Resource/P04.png"
 #############################################################################
 		.text
 		.globl main
@@ -89,20 +100,33 @@ main:	li	$s0, 0x79				# save character 'y'
 		li	$s2, 6				# 6 digits binary for 0 ~ 63
 		li	$s3, 8				# feed back every 8 numbers when print card
 		li	$a1, 64				# random range [0, 64)
-		li	$v0, 42
-		syscall
-		move	$s4, $a0				# random factor: a random 6-bit 0/1 sequence
 		li	$s5, 1				# set card length
 		sllv	$s5, $s5, $s2			# << 6
 		srl	$s5, $s5, 1			# half of 2^6
+restart:	addi	$sp, $sp, -4
+		sw	$ra, 0($sp)
+		jal	drawStart
+		lw	$ra, 0($sp)
+		addi	$sp, $sp, 4
+		li	$v0, 4				# print message start
+		la	$a0, start				# load address
+		syscall
+		li	$v0, 4				# print message hint
+		la	$a0, hint
+		syscall
+		jal	input					# get an input
+		beq	$t2, $zero, exit			# input, 1 for y and 0 for n
+		li	$v0, 42
+		syscall
+		move	$s4, $a0			# random factor: a random 6-bit 0/1 sequence
 		# init sequence ( a shuffled sequence to ask question)
 		li	$t8, 1				# start with 000001
-		move	$t9, $s2				# index = max digit
-		sll	$t9, $t9, 2			# index -> address
+		move	$t9, $s2			# index = max digit
+		sll	$t9, $t9, 2				# index -> address
 initSeqL:	beq	$t9, $zero, initSeqE		# break
-		addi	$t9, $t9, -4			# address -= 4
+		addi	$t9, $t9, -4				# address -= 4
 		sw	$t8, sequence($t9)		# save to sequence[index]
-		sll	$t8, $t8, 1			# <<1
+		sll	$t8, $t8, 1				# <<1
 		j	initSeqL
 initSeqE:	addi	$sp, $sp, -8			# save $s0-s1
 		sw	$s0, 0($sp)
@@ -115,23 +139,43 @@ initSeqE:	addi	$sp, $sp, -8			# save $s0-s1
 		addi	$sp, $sp, 8			# restore
 		# get start
 		li	$t1, 0				# set result to 0
-		move	$t0, $s2				# digits left
-		li	$v0, 4				# print message start
-		la	$a0, start				# load address
-		syscall
-		li	$v0, 4				# print message hint
-		la	$a0, hint
-		syscall
-		jal	input					# get an input
-		beq	$t2, $zero, exit			# input, 1 for y and 0 for n
+		move	$t0, $s2			# digits left
 		# main loop: print card and ask question
 loop:		beq	$t0, $zero, show		# if 0 digit left, show reslut. Get highter digit first for similicity
 		sll	$t8, $t0, 2
-		addi	$t8, $t8, -4			# index -> address
+		addi	$t8, $t8, -4				# index -> address
 		lw	$t3, sequence($t8)		# current digit = sequence[index]
 		move	$t4, $s4
 		srl	$s4, $s4, 1			# random sequence >>
-		andi	$t4, $t4, 1			# get valid random sequence (lasr digit)
+		andi	$t4, $t4, 1				# get valid random sequence (lasr digit)
+		# card background
+		addi $sp, $sp, -12	# save variable
+		sw $t0, 0($sp)
+		sw $t1, 4($sp)
+		sw $t2, 8($sp)
+		beq $t0, 1, card6
+		beq $t0, 2, card5
+		beq $t0, 3, card4
+		beq $t0, 4, card3
+		beq $t0, 5, card2
+card1:	la $t0, pictCard1
+		j cardEntr
+card2:	la $t0, pictCard2
+		j cardEntr
+card3:	la $t0, pictCard3
+		j cardEntr
+card4:	la $t0, pictCard4
+		j cardEntr
+card5:	la $t0, pictCard5
+		j cardEntr
+card6:	la $t0, pictCard6
+cardEntr:	li $t1, 0
+		li $t2, 0
+		jal makeDot
+		lw $t0, 0($sp)
+		lw $t1, 4($sp)
+		lw $t2, 8($sp)
+		addi $sp, $sp, 12	# restore variable
 		# write card
 		addi	$sp, $sp, -8			# save $s0-s1
 		sw 	$s0, 0($sp)
@@ -147,7 +191,7 @@ loop:		beq	$t0, $zero, show		# if 0 digit left, show reslut. Get highter digit f
 		sw	$s0, 0($sp)
 		sw	$s1, 4($sp)			# $s2 is same and const in Callee
 		la	$s0, card
-		move	$s1, $s5				# length -> address
+		move	$s1, $s5			# length -> address
 		jal	shuffle				# shuffle card (length = 2^6/2 (* 4) = 2^7)
 		lw	$s0, 0($sp)
 		lw	$s1, 4($sp)
@@ -158,8 +202,8 @@ loop:		beq	$t0, $zero, show		# if 0 digit left, show reslut. Get highter digit f
 		sw	$s1, 4($sp)
 		sw	$s2, 8($sp)
 		la	$s0, card
-		move	$s1, $s5				# length
-		move	$s2, $s3				# feed back value
+		move	$s1, $s5			# length
+		move	$s2, $s3			# feed back value
 		jal	pCard				# print card
 		lw	$s0, 0($sp)
 		lw	$s1, 4($sp)
@@ -176,14 +220,19 @@ loop:		beq	$t0, $zero, show		# if 0 digit left, show reslut. Get highter digit f
 		xor	$t2, $t2, $t4			# xor
 		bne	$t2, $zero, skipAdd		# != 0 skip add
 		add	$t1, $t1, $t3			# result += input
-skipAdd:	addi	$t0, $t0, -1			# digit left--
+skipAdd:	addi	$t0, $t0, -1				# digit left--
 		j	loop
-show:	beq	$t1, $zero, overF		# if answer is 0, overflow
+show:	addi	$sp, $sp, -4
+		sw	$ra, 0($sp)
+		jal	drawAnsw
+		lw	$ra, 0($sp)
+		addi	$sp, $sp, 4
+		beq	$t1, $zero, overF		# if answer is 0, overflow
 		li	$v0, 4				# print answer
 		la	$a0, answer
 		syscall
 		li	$v0, 1				# print result
-		addi	$a0, $t1, 0			# set $a0 to result
+		addi	$a0, $t1, 0				# set $a0 to result
 		syscall
 doAgain:	li	$v0, 4				# print again
 		la	$a0, again
@@ -194,7 +243,7 @@ doAgain:	li	$v0, 4				# print again
 		
 		jal	input
 		beq	$t2, $zero, exit
-		j	main
+		j	restart
 overF:	li	$v0, 4				# print overflow
 		la	$a0, overflow
 		syscall
@@ -240,8 +289,8 @@ wCard:	addi	$sp, $sp, -40			# save $t0-$t9
 		li	$t0, 0				# get digit
 		move	$t9, $s0		
 digitL:	beq	$t9, $zero, digitE
-		addi	$t0, $t0, 1			# digit++
-		srl	$t9, $t9, 1			# $t8 >> 1
+		addi	$t0, $t0, 1				# digit++
+		srl	$t9, $t9, 1				# $t8 >> 1
 		j	digitL
 digitE:	li	$t1, 0				# upper count
 		li	$t2, 0				# lower count
@@ -249,26 +298,26 @@ digitE:	li	$t1, 0				# upper count
 		sub	$t5, $s2, $t0			# << max digit - current digit 
 		sllv	$t3, $t3, $t5
 		li	$t4, 1				# set lower end
-		addi	$t5, $t0, -1			# set shamt for splice number
+		addi	$t5, $t0, -1				# set shamt for splice number
 		sllv	$t4, $t4, $t5			# set upper end
 		la	$t7, card				# get memory address
 		li	$t8, 1				# set card length
 		sllv	$t8, $t8, $s2			# << 6
-		srl	$t8, $t8, 1			# half of 2^6
+		srl	$t8, $t8, 1				# half of 2^6
 		# traverse
-upperL:	beq	$t1, $t3, upperE		# if equal end upper loop
+upperL:	beq	$t1, $t3, upperE			# if equal end upper loop
 lowerL:	beq	$t2, $t4, lowerE			# if equal end lower loop and start a upper loop
 		# print number
-		move	$t6, $t1				# number == upper * upper unit + 1 + lower
-		sll	$t6, $t6, 1			# << 1
+		move	$t6, $t1			# number == upper * upper unit + 1 + lower
+		sll	$t6, $t6, 1				# << 1
 		add	$t6, $t6, $s1			# + valid binary expansion
 		sllv	$t6, $t6, $t5			# << until 6 digit
 		add	$t6, $t6, $t2
-		sw	$t6, 0($t7)			# save in card
-		addi	$t7, $t7, 4			# addr += 4
-		addi	$t2, $t2, 1			# lower count++
+		sw	$t6, 0($t7)				# save in card
+		addi	$t7, $t7, 4				# addr += 4
+		addi	$t2, $t2, 1				# lower count++
 		j	lowerL
-lowerE:	addi	$t1, $t1, 1			# upper count++
+lowerE:	addi	$t1, $t1, 1				# upper count++
 		li	$t2, 0				# set lower count to 0
 		j	upperL			
 upperE:	lw	$t0, 0($sp)
@@ -300,7 +349,7 @@ pCard:	addi	$sp, $sp, -16			# save $t0-t3
 		move	$t1, $s0
 		li	$t2, 0
 printL:	beq	$t0, $s1, printE
-		lw	$t3, 0($t1)			# get number from card
+		lw	$t3, 0($t1)				# get number from card
 		beq	$t3, $zero, afterPrint		# do not print 0
 		beq	$t2, $zero, feedBack
 		li	$v0, 11				# print \t
@@ -313,18 +362,456 @@ feedBack:	li	$v0, 11				# print \n
 printNum:	move	$a0, $t3
 		li	$v0, 1				# print number
 		syscall
-		addi	$t2, $t2, 1			# feed back index++
+		addi	$t2, $t2, 1				# feed back index++
 		bne	$t2, $s2, afterPrint
 		li	$t2, 0				# reset feed back index
-afterPrint:	addi	$t0, $t0, 1			# index++
-		addi	$t1, $t1, 4			# address+=4
+afterPrint:	addi	$t0, $t0, 1				# index++
+		addi	$t1, $t1, 4				# address+=4
 		j	printL
 printE:	lw	$t0, 0($sp)
 		lw	$t1, 4($sp)
 		lw	$t2, 8($sp)
 		lw	$t3, 12($sp)
 		addi	$sp, $sp, 16			# restore
+		# bitmap functions
+		addi	$sp, $sp, -4			# save for bitmap print number
+		sw	$ra, 0($sp)
+		jal	bitMNum				# print num in bitmap
+		lw	$ra, 0($sp)
+		addi	$sp, $sp, 4			# restore
 		jr	$ra
+###############################################################################
+		# Bitmap functions
+###############################################################################
+		# Bitmap print number (yuer)
+bitMNum:	addi	$sp, $sp, -92			# save variables
+		sw 	$ra, 0($sp)
+		sw	$a0, 4($sp)
+		sw	$a1, 8($sp)
+		sw	$a2, 12($sp)
+		sw	$a3, 16($sp)
+		sw	$s0, 20($sp)
+		sw	$s1, 24($sp)
+		sw	$s2, 28($sp)
+		sw	$s3, 32($sp)
+		sw	$s4, 36($sp)
+		sw	$s5, 40($sp)
+		sw	$s6, 44($sp)
+		sw	$s7, 48($sp)
+		sw	$t0, 52($sp)
+		sw	$t1, 56($sp)
+		sw	$t2, 60($sp)
+		sw	$t3, 64($sp)
+		sw	$t4, 68($sp)
+		sw	$t5, 72($sp)
+		sw	$t6, 76($sp)
+		sw	$t7, 80($sp)
+		sw	$t8, 84($sp)
+		sw	$t9, 88($sp)
+		#x from 10 - 370, y from 100 - 200, cube 45 x 25, word 8 x 16
+		li $s0, 10        #x position of the head
+		li $s1, 100         #y position of the head
+		li $t7, 200
+		li $t8, 370
+		li $s7, 10
+		la	$t5, card			# point to card
+		li	$t4, 32			# count: print at most 32 numbers
+outer: 	li $a2, 0xFFFFFFFF	#loads the color white into the register $a2
+		li $s0, 10
+inner:	move $s3, $s0
+		move $s4, $s1
+zeroJp:	lw	$s2, 0($t5)			# load print number
+		addi	$t5, $t5, 4			# address ++4
+		addi	$t4, $t4, -1			# count--
+		beq	$s2, $zero, zeroJp	# read again if zero
+		#li $s2, 88 # where you will need to load print number into $s2
+		div $s2, $s7
+		mfhi $s6
+		mflo $s5
+		add $a0, $s5, $zero
+		jal read
+		addi $s0, $s3, 12
+		move $s1, $s4
+		add $a0, $s6, $zero
+		jal read
+		move $s0, $s3
+   		move $s1, $s4
+   		# exit condition for not print zero
+   		beq	$t4, $zero, exitBPN
+   	
+		addi $s0, $s0, 45
+		blt $s0, $t8, inner
+		addi $s1, $s1, 25
+		blt $s1, $t7, outer
+		# exit for bitmapPN
+exitBPN:	lw 	$ra, 0($sp)
+		lw	$a0, 4($sp)
+		lw	$a1, 8($sp)
+		lw	$a2, 12($sp)
+		lw	$a3, 16($sp)
+		lw	$s0, 20($sp)
+		lw	$s1, 24($sp)
+		lw	$s2, 28($sp)
+		lw	$s3, 32($sp)
+		lw	$s4, 36($sp)
+		lw	$s5, 40($sp)
+		lw	$s6, 44($sp)
+		lw	$s7, 48($sp)
+		lw	$t0, 52($sp)
+		lw	$t1, 56($sp)
+		lw	$t2, 60($sp)
+		lw	$t3, 64($sp)
+		lw	$t4, 68($sp)
+		lw	$t5, 72($sp)
+		lw	$t6, 76($sp)
+		lw	$t7, 80($sp)
+		lw	$t8, 84($sp)
+		lw	$t9, 88($sp)
+		addi	$sp, $sp, 92			# restore variables
+		jr	$ra
+		# extra part for bitmap print number
+waive: 	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	li $a2, 0x00000000 #loads the color black
+	li $s0, 10        #x position of the head
+	li $s1, 100         #y position of the head
+outer2:	li $s0, 10
+inner2:	move $s3, $s0
+	move $s4, $s1
+	jal draw8
+	addi $s0, $s3, 12
+	move $s1, $s4
+	jal draw8
+	move $s0, $s3
+   	move $s1, $s4 	
+	addi $s0, $s0, 45
+	blt $s0, $t8, inner2
+	addi $s1, $s1, 25
+	blt $s1, $t7, outer2
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	jr $ra
+
+read:   addi $sp, $sp, -4
+	sw $ra, ($sp)
+	move $s2, $a0
+	beq $s2, 0, draw0
+	beq $s2, 1, draw1
+	beq $s2, 2, draw2
+	beq $s2, 3, draw3
+	beq $s2, 4, draw4
+	beq $s2, 5, draw5
+	beq $s2, 6, draw6
+	beq $s2, 7, draw7
+	beq $s2, 8, draw8
+	beq $s2, 9, draw9
+readE:	lw $ra, ($sp)		# beq is not jal
+	addi $sp, $sp, 4
+	jr $ra
+
+draw0:	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s1, 8
+	jal col
+	addi $s0, $s0, -8
+	addi $s1, $s1, -16
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 8
+	jal row
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	j readE
+draw1:  addi $sp, $sp, -4
+	sw $ra, ($sp)
+	addi $s0, $s0, 8
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s1, 8
+	jal col
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	j readE
+draw2:	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 0
+	addi $s0, $s0, -8
+	jal row
+	addi $s0, $s0, -8
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 8
+	jal row
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	j readE
+draw3:	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 0
+	addi $s0, $s0, -8
+	jal row
+	addi $s0, $s0, -8
+	addi $s1, $s1, -8
+	jal row
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	j readE
+draw4:	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s1, 8
+	jal col
+	addi $s1, $s1, -16
+	addi $t6, $s1, 8
+	jal col
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	j readE
+draw5:	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 0
+	addi $s0, $s0, -8
+	jal row
+	addi $s0, $s0, -8
+	addi $s1, $s1, -16
+	addi $t6, $s0, 8
+	jal row
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	j readE
+draw6: 	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 0
+	addi $s0, $s0, -8
+	jal row
+	addi $s0, $s0, -8
+	addi $s1, $s1, -16
+	addi $t6, $s0, 8
+	jal row
+	addi $s0, $s0, -8
+	addi $s1, $s1, 8
+	addi $t6, $s1, 8
+	jal col
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	j readE
+draw7:	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s1, 8
+	jal col
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	j readE
+draw8:	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s1, 8
+	jal col
+	addi $s0, $s0, -8
+	addi $s1, $s1, -16
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s0, 0
+	addi $s0, $s0, -8
+	addi $s1, $s1, -8
+	jal row
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	j readE
+	
+draw9:	addi $sp, $sp, -4
+	sw $ra, ($sp)
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s1, 8
+	jal col
+	addi $s0, $s0, -8
+	addi $s1, $s1, -16
+	addi $t6, $s1, 8
+	jal col
+	addi $t6, $s0, 8
+	jal row
+	addi $t6, $s0, 0
+	addi $s0, $s0, -8
+	addi $s1, $s1, 8
+	jal row
+	lw $ra, ($sp)
+	addi $sp, $sp, 4
+	j readE
+
+row:
+   	ble $s0, $t6, DrawRow
+   	addi $s0, $s0, -1
+   	jr $ra
+   	
+col:
+   	ble $s1, $t6, DrawCol
+   	addi $s1, $s1, -1
+   	jr $ra
+   	
+
+DrawRow:
+li $t3, 0x10000100       #t3 = first Pixel of the screen
+
+sll   $t0, $s1, 9        #y = y * 512
+addu  $t0, $t0, $s0      # (xy) t0 = x + y
+sll   $t0, $t0, 2        # (xy) t0 = xy * 4
+addu  $t0, $t3, $t0      # adds xy to the first pixel ( t3 )
+sw    $a2, ($t0)         # put the color ($a2) in $t0
+addi $s0, $s0, 1 	#adds 1 to the X of the head
+j row
+
+DrawCol:
+li $t3, 0x10000100       #t3 = first Pixel of the screen
+
+sll   $t0, $s1, 9        #y = y * 512
+addu  $t0, $t0, $s0      # (xy) t0 = x + y
+sll   $t0, $t0, 2        # (xy) t0 = xy * 4
+addu  $t0, $t3, $t0      # adds xy to the first pixel ( t3 )
+sw    $a2, ($t0)         # put the color ($a2) in $t0
+addi $s1, $s1, 1         #adds 1 to the X of the head
+j col
+
+		# Bitmap print pircture (pengfei)
+drawStart:	addi $sp, $sp, -16	# save variable
+		sw $ra, 0($sp)
+		sw $t0, 4($sp)
+		sw $t1, 8($sp)
+		sw $t2, 12($sp)
+		la $t0, pictStart
+		li $t1, 0
+		li $t2, 0
+		jal makeDot
+		lw $ra, 0($sp)
+		lw $t0, 4($sp)
+		lw $t1, 8($sp)
+		lw $t2, 12($sp)
+		addi $sp, $sp, 16	# restore variable
+		jr $ra
+drawAnsw: addi $sp, $sp, -16	# save variable
+		sw $ra, 0($sp)
+		sw $t0, 4($sp)
+		sw $t1, 8($sp)
+		sw $t2, 12($sp)
+		la $t0, pictAnsw
+		li $t1, 0
+		li $t2, 0
+		jal makeDot
+		lw $ra, 0($sp)
+		lw $t0, 4($sp)
+		lw $t1, 8($sp)
+		lw $t2, 12($sp)
+		addi $sp, $sp, 16	# restore variable
+		jr $ra
+drawOverf: addi $sp, $sp, -16	# save variable
+		sw $ra, 0($sp)
+		sw $t0, 4($sp)
+		sw $t1, 8($sp)
+		sw $t2, 12($sp)
+		la $t0, pictOverf
+		li $t1, 0
+		li $t2, 0
+		jal makeDot
+		lw $ra, 0($sp)
+		lw $t0, 4($sp)
+		lw $t1, 8($sp)
+		lw $t2, 12($sp)
+		addi $sp, $sp, 16	# restore variable
+		jr $ra
+drawEnd:	addi $sp, $sp, -16	# save variable
+		sw $ra, 0($sp)
+		sw $t0, 4($sp)
+		sw $t1, 8($sp)
+		sw $t2, 12($sp)
+		la $t0, pictEnd
+		li $t1, 0
+		li $t2, 0
+		jal makeDot
+		lw $ra, 0($sp)
+		lw $t0, 4($sp)
+		lw $t1, 8($sp)
+		lw $t2, 12($sp)
+		addi $sp, $sp, 16	# restore variable
+		jr $ra
+		# $t0	dir
+		# $t1	x-offset
+		# $t2	y-offset
+		# make dot?
+makeDot:	addi $sp, $sp, -16	# save variable
+		sw $ra, 0($sp)
+		sw $a0, 4($sp)
+		sw $a1, 8($sp)
+		sw $a2, 12($sp)
+		
+		move $a0, $t0		# dir
+		li $v0, 60
+		syscall
+		move $a0, $t1		# x
+		move $a1, $t2		# y
+		li $v0, 61
+		syscall
+		li $a0, 0
+		li $a1, 256
+		li $a2, 0
+		# $v0 = base+$a0*4+$a1*512*4
+		sll $a0,$a0,2
+		sll $a1,$a1,11
+		addi $v0, $a0, 0x10010000
+		add $v0, $v0, $a1
+
+		sw $v1, 0($v0)		# make dot
+		
+		lw $ra, 0($sp)
+		lw $a0, 4($sp)
+		lw $a1, 8($sp)
+		lw $a2, 12($sp)
+		addi $sp, $sp, 16	# restore variable
+		jr $ra
+
 		# shuffle
 		# $s0	start address (Caller)
 		# $s1	length(Caller)
@@ -344,7 +831,7 @@ shuffleL:	slt	$t0, $zero, $s1			# 0 < length? 1: 0
 		syscall
 		sll	$a0, $a0, 2			# * 4
 		add	$t1, $s0, $a0			# target address
-		lw	$t8, 0($s0)			# swap
+		lw	$t8, 0($s0)				# swap
 		lw	$t9, 0($t1)
 		sw	$t9, 0($s0)
 		sw	$t8, 0($t1)
@@ -358,6 +845,11 @@ shuffleE:	lw	$t0, 0($sp)
 		addi	$sp, $sp, 16			# restore
 		jr	$ra
 		# exit
-exit:		li	$v0, 4				# print end
+exit:		addi	$sp, $sp, -4
+		sw	$ra, 0($sp)
+		jal	drawEnd
+		lw	$ra, 0($sp)
+		addi	$sp, $sp, 4
+		li	$v0, 4				# print end
 		la	$a0, end
 		syscall
