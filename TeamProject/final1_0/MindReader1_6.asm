@@ -480,9 +480,9 @@ bitMNum:	addi	$sp, $sp, -92			# save variables
 		sw	$t9, 88($sp)
 		#x from 10 - 370, y from 100 - 200, cube 45 x 25, word 8 x 16
 		li $s0, 10        #x position of the head
-		li $s1, 100         #y position of the head
-		li $t7, 200
-		li $t8, 370
+		li $s1, 120         #y position of the head
+		li $t7, 220 # max y
+		li $t8, 370 # max x
 		li $s7, 10
 		la	$t5, card			# point to card
 		li	$t4, 32			# count: print at most 32 numbers
@@ -568,8 +568,8 @@ bitMNum2:	addi	$sp, $sp, -92			# save variables
 		sw	$t9, 88($sp)
 		#x from 10 - 370, y from 100 - 200, cube 45 x 25, word 8 x 16
 		li $a2, 0xFFFFFFFF
- 		li $s0, 190
-		li $s1, 150
+ 		li $s0, 165 # x
+		li $s1, 160 # y
 		li $s2, 10
 		move $s3, $s0
  		move $s4, $s1
@@ -1063,7 +1063,7 @@ playNotes:
 	#play the sound
 	move $a0,$t1                            #pitch
 	li $a1,100                            #time
-	li $a2,37                               #32#31#29#instumanets
+	li $a2,31                               #32#31#29#instumanets
 	li $a3,1000                              #volume
 	li $v0,33                               #syscall to beep with pause
 	syscall
